@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="ui grid">
-      <div class="six wide column red" style="position: relative; z-index: 1">
+      <div class="four wide column red" style="position: relative; z-index: 1">
         <form class="ui segment large form" @submit.prevent="">
           <div class="ui message red" v-show="error">
             Please enter your location manually
@@ -46,9 +46,20 @@
             </button>
           </div>
         </form>
-        <div class="ui segment">
+        <div
+          class="ui segment"
+          style="max-height: 400px; overflow: scroll"
+          v-show="places.length !== 0"
+        >
           <div class="ui divided items">
-            <div class="item" v-for="place in places" :key="place.id">
+            <div
+              class="item"
+              v-for="(place, ind) in places"
+              :key="place.id"
+              @click="showInfoWindow(ind)"
+              :class="{ active: ind === activeIndex }"
+              style="cursor: pointer"
+            >
               <div class="content">
                 <div class="header">{{ place.name }}</div>
                 <div class="meta">{{ place.vicinity }}</div>
@@ -74,7 +85,9 @@ export default {
       type: "restaurant",
       radius: "10",
       places: [],
+      markers: [],
       map: null,
+      activeIndex: -1,
     };
   },
   async mounted() {
@@ -95,19 +108,48 @@ export default {
   },
   methods: {
     async showPlacesOnMap() {
-      for (let i = 0; i < this.places.length; i++) {
-        const lat = this.places[i].geometry.location.lat;
-        const lng = this.places[i].geometry.location.lng;
+      const infoWindow = new google.maps.InfoWindow();
+      this.places.forEach((place) => {
+        const lat = place.geometry.location.lat;
+        const lng = place.geometry.location.lng;
+        const placeId = place.place_id;
+        let imageUrl = "";
 
-        new google.maps.Marker({
+        //Place map api
+        if (place.photos) {
+          imageUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=1200&photoreference=${place.photos[0].photo_reference}&key=${this.key}`;
+        }
+
+        const marker = new google.maps.Marker({
           position: new google.maps.LatLng(lat, lng),
           map: this.map,
         });
-      }
+
+        this.markers.push(marker);
+        google.maps.event.addListener(marker, "click", async () => {
+          //place detail api
+          const URL = `http://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/api/place/details/json?key=${this.key}&place_id=${placeId}`;
+          const result = await axios.get(URL);
+          const placeDetails = result.data.result;
+
+          //info window allows to pop up a mini window when we click on the marker
+          //put your creative like review,rating, image HTML code here
+          infoWindow.setContent(
+            `<div class="ui header">${placeDetails.name}</div>
+            ${placeDetails.formatted_address}
+            ${placeDetails.formatted_phone_number}
+            ${placeDetails.rating}
+            <div style="max-width:400px"><img src="${imageUrl}" style="width:100%"/></div>`
+          );
+          infoWindow.open(map, marker);
+        });
+      });
     },
     async findCloseBuyButtonPressed() {
       try {
         const { latitude, longitude } = await this.currentLatAndLong();
+
+        //nearby search api
         const URL = `http://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&type=${
           this.type
         }&radius=${this.radius * 1000}&key=${this.key}`;
@@ -182,6 +224,10 @@ export default {
         );
       });
     },
+    showInfoWindow(index) {
+      this.activeIndex = index;
+      new google.maps.event.trigger(this.markers[index], "click");
+    },
   },
 };
 </script>
@@ -216,5 +262,10 @@ export default {
   right: 0;
   bottom: 0;
   left: 0;
+}
+
+.active {
+  background: #ff5a5f !important;
+  padding: 10px;
 }
 </style>

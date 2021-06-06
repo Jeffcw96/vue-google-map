@@ -105,11 +105,20 @@ export default {
       }
     },
     currentLatAndLong() {
+      // axios
+      //   .get("https://maps.googleapis.com/maps/api/geocode/json")
+      //   .then((response) => {
+      //     console.log("response", response);
+      //   });
+
       return new Promise((resolve, reject) => {
         //Prompt user permission for knowing location
         navigator.geolocation.getCurrentPosition(
           (position) => {
             if (position.coords.latitude && position.coords.longitude) {
+              console.log(
+                position.coords.latitude && position.coords.longitude
+              );
               resolve({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
@@ -118,7 +127,8 @@ export default {
           },
           (error) => {
             reject(error.message);
-          }
+          },
+          { maximumAge: 60000, timeout: 5000, enableHighAccuracy: true }
         );
       });
     },
